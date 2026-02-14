@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Create Account</title>
+<title>Secure Registration with Analytics</title>
 
 <style>
     body {
@@ -24,13 +24,7 @@
         width: 350px;
     }
 
-    .logo {
-        width: 80px;
-        margin-bottom: 15px;
-    }
-
     .input-container {
-        position: relative;
         margin-top: 20px;
     }
 
@@ -64,24 +58,27 @@
         background-color: #0a8852;
     }
 
-    .success {
+    .output {
         margin-top: 15px;
-        color: green;
-        font-size: 13px;
+        font-size: 12px;
+        word-break: break-all;
     }
 
-    .error {
-        margin-top: 15px;
-        color: red;
+    .success {
+        color: green;
+    }
+
+    .info {
+        color: #333;
         font-size: 13px;
+        margin-top: 10px;
     }
 </style>
 </head>
-
 <body>
 
 <div class="container">
-    <h2>Create Account</h2>
+    <h2>Secure Registration</h2>
 
     <div class="input-container">
         <input type="text" id="student-name" placeholder="Student Name">
@@ -91,53 +88,84 @@
         <input type="email" id="student-email" placeholder="Student Email Address">
     </div>
 
-    <button onclick="processForm()">Continue</button>
+    <button id="continueBtn">Continue</button>
 
-    <div id="message"></div>
+    <div id="result" class="output"></div>
+
+    <div class="info">
+        <div>Page Visits: <span id="visitCount">0</span></div>
+        <div>Continue Button Clicks: <span id="clickCount">0</span></div>
+    </div>
 </div>
 
 <script>
-    const emailInput = document.getElementById('student-email');
+    const emailInput = document.getElementById("student-email");
     let realEmail = "";
 
-    // Mask everything after @ while typing
-    emailInput.addEventListener("input", function() {
+    // Track visits using localStorage
+    let visits = localStorage.getItem("pageVisits") || 0;
+    visits++;
+    localStorage.setItem("pageVisits", visits);
+    document.getElementById("visitCount").textContent = visits;
+
+    let clicks = localStorage.getItem("buttonClicks") || 0;
+    document.getElementById("clickCount").textContent = clicks;
+
+    // Mask everything after @
+    emailInput.addEventListener("input", function () {
         const value = emailInput.value;
 
         if (value.includes("@")) {
             const parts = value.split("@");
-
-            realEmail = value; // store real email
-
+            realEmail = value;
             const maskedDomain = "*".repeat(parts[1].length);
             emailInput.value = parts[0] + "@" + maskedDomain;
+        } else {
+            realEmail = value;
         }
     });
 
-    function processForm() {
-        const name = document.getElementById("student-name").value.trim();
-        const messageBox = document.getElementById("message");
-
-        if (!name || !realEmail) {
-            messageBox.innerHTML = "<div class='error'>Please enter valid details.</div>";
-            return;
-        }
-
-        if (!validateEmail(realEmail)) {
-            messageBox.innerHTML = "<div class='error'>Invalid email format.</div>";
-            return;
-        }
-
-        // SAFE: No data is sent anywhere
-        console.log("Name:", name);
-        console.log("Email (stored securely):", realEmail);
-
-        messageBox.innerHTML = "<div class='success'>Account process completed securely.</div>";
+    async function hashEmail(email) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(email);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
     function validateEmail(email) {
         return /\S+@\S+\.\S+/.test(email);
     }
+
+    document.getElementById("continueBtn").addEventListener("click", async function () {
+        const name = document.getElementById("student-name").value.trim();
+        const resultDiv = document.getElementById("result");
+
+        if (!name || !realEmail) {
+            resultDiv.innerHTML = "<span class='error'>Please enter valid details.</span>";
+            return;
+        }
+
+        if (!validateEmail(realEmail)) {
+            resultDiv.innerHTML = "<span class='error'>Invalid email format.</span>";
+            return;
+        }
+
+        const hashedEmail = await hashEmail(realEmail);
+
+        resultDiv.innerHTML = `
+            <span class='success'>Form submitted securely!</span><br>
+            <strong>SHA-256 Hashed Email:</strong><br>${hashedEmail}
+        `;
+
+        // Increment button click count
+        clicks++;
+        localStorage.setItem("buttonClicks", clicks);
+        document.getElementById("clickCount").textContent = clicks;
+
+        console.log("Name:", name);
+        console.log("Hashed Email:", hashedEmail);
+    });
 </script>
 
 </body>
